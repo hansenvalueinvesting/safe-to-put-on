@@ -65,14 +65,13 @@
 <div class="wrap">
   <header>
     <h1>safe to put on<span class="dot">?</span></h1>
-    <div class="sub">Search a skincare or self-care ingredient (or one of its label aliases) to see how concerned to actually be. Uncertain entries are sorted into the more severe tier.</div>
+    <div class="sub">See how worried to be about a skincare ingredient.</div>
   </header>
 
   <div class="searchbox">
     <span class="mag">⌕</span>
-    <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. cloprostenate, fragrance, niacinamide, calomel…" autofocus>
+    <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="search one — or paste a whole label, e.g. fragrance, niacinamide, calomel…" autofocus>
   </div>
-  <div class="hint">Tip: try a sketchy-looking word from a label — aliases are matched too.</div>
 
   <div class="legend" id="legend"></div>
 
@@ -80,13 +79,13 @@
   <div id="results"></div>
 
   <footer>
-    <span class="pol">Uncertain → sorted more severe.</span> Reference tool for triage, not medical advice. Tier 2 risks are cumulative & reversible; Tier 1 is the one that warrants real caution.<br>
-    Data v1.0 · 72 ingredients · last updated 2026-06-27
+    Triage help, not medical advice. When unsure, we flag it higher.<br>
+    Data v1.0 · 72 ingredients
   </footer>
 </div>
 
 <script>
-let DATA=null, activeTiers=new Set([1,2,3]);
+let DATA=null, activeTiers=new Set([1,2,3]), started=false;
 const $=s=>document.querySelector(s);
 
 const TIERMETA={
@@ -136,7 +135,11 @@ function buildLegend(){
     const div=document.createElement('div');
     div.className='chip t'+t+(activeTiers.has(t)?'':' off');
     div.innerHTML=`<span class="t">${m.label}</span><span class="c">${m.meaning.split('.')[0]}.</span>`;
-    div.onclick=()=>{ activeTiers.has(t)?activeTiers.delete(t):activeTiers.add(t); if(activeTiers.size===0)activeTiers.add(t); buildLegend(); render(); };
+    div.onclick=()=>{
+      if(!started){ started=true; activeTiers=new Set([t]); }
+      else { activeTiers.has(t)?activeTiers.delete(t):activeTiers.add(t); if(activeTiers.size===0)activeTiers.add(t); }
+      buildLegend(); render();
+    };
     L.appendChild(div);
   });
 }
@@ -158,26 +161,36 @@ function card(ing,q){
 
 function render(){
   const q=$('#q').value.trim();
+  const C=$('#count'), R=$('#results');
+
+  // Calm landing screen — nothing shown until she searches or taps a tier.
+  if(!started && !q){
+    C.textContent='';
+    R.innerHTML=`<div class="empty"><span class="big">What's on the label?</span><br>
+      Search one ingredient, paste a whole list, or tap a tier above to browse.</div>`;
+    return;
+  }
+
+  const terms=q.split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean);
   let list=DATA.ingredients.filter(i=>activeTiers.has(i.tier));
-  if(q){
-    list=list.map(i=>({i,s:matchScore(i,q)})).filter(x=>x.s>0)
+  if(terms.length){
+    list=list.map(i=>({i,s:Math.max(...terms.map(t=>matchScore(i,t)))}))
+             .filter(x=>x.s>0)
              .sort((a,b)=>b.s-a.s || a.i.name.localeCompare(b.i.name)).map(x=>x.i);
   }else{
     list=list.sort((a,b)=>a.tier-b.tier || a.name.localeCompare(b.name));
   }
-  const C=$('#count'), R=$('#results');
   if(list.length===0){
     C.textContent='';
-    R.innerHTML=`<div class="empty"><span class="big">No match in the database.</span><br>
-      That doesn't mean it's unsafe — it means it isn't one of the flagged or known-benign entries yet.<br>
-      If it's on a product and looks drug-like or it's a "brightening/whitening" claim, treat with caution and add it to the list.</div>`;
+    R.innerHTML=`<div class="empty"><span class="big">No match yet.</span><br>
+      Not a red flag on its own — but if it looks drug-like or claims to "brighten/whiten," be cautious.</div>`;
     return;
   }
-  C.textContent=q?`${list.length} match${list.length>1?'es':''}`:`Showing all ${list.length} — search to narrow, or toggle tiers above`;
+  C.textContent=q?`${list.length} match${list.length>1?'es':''}`:`All ${list.length} — search to narrow`;
   R.innerHTML=list.map(i=>card(i,q)).join('');
 }
 
-$('#q').addEventListener('input',render);
+$('#q').addEventListener('input',()=>{ started=true; render(); });
 
 fetch('ingredients.json')
   .then(r=>r.json())
