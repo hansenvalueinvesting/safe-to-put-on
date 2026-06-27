@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ingredient Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0c0e10; --panel:#131619; --panel-2:#181c20; --line:#262b30;
+    --txt:#e6e9ec; --dim:#8a939b; --faint:#5b646c;
+    --red:#ff5c5c; --red-bg:#2a1416; --amber:#f5b545; --amber-bg:#2a2110; --green:#46c98b; --green-bg:#0f2419;
+    --accent:#8ab4ff;
+    --mono:'JetBrains Mono',ui-monospace,monospace; --serif:'Fraunces',Georgia,serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--txt);font-family:var(--mono);-webkit-font-smoothing:antialiased}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:28px 16px 80px}
+  .wrap{width:100%;max-width:680px}
+  header{margin-bottom:22px}
+  h1{font-family:var(--serif);font-weight:600;font-size:30px;letter-spacing:-.5px;line-height:1.05}
+  h1 .dot{color:var(--green)}
+  .sub{color:var(--dim);font-size:12.5px;margin-top:6px;line-height:1.5}
+  .searchbox{position:relative;margin:20px 0 8px}
+  #q{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+     color:var(--txt);font-family:var(--mono);font-size:15px;padding:15px 16px 15px 44px;outline:none;transition:border-color .15s}
+  #q:focus{border-color:var(--accent)}
+  #q::placeholder{color:var(--faint)}
+  .mag{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--faint);font-size:15px}
+  .hint{color:var(--faint);font-size:11.5px;text-align:center;margin-top:4px}
+  .legend{display:flex;gap:8px;margin:16px 0 4px;flex-wrap:wrap}
+  .chip{flex:1;min-width:150px;border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--panel);cursor:pointer;transition:.15s;user-select:none}
+  .chip:hover{border-color:var(--faint)}
+  .chip.off{opacity:.4}
+  .chip .t{font-weight:700;font-size:11px;letter-spacing:.4px;text-transform:uppercase}
+  .chip .c{display:block;font-size:10.5px;color:var(--dim);margin-top:2px}
+  .chip.t1 .t{color:var(--red)} .chip.t2 .t{color:var(--amber)} .chip.t3 .t{color:var(--green)}
+  .count{color:var(--faint);font-size:11.5px;margin:14px 2px 8px;letter-spacing:.3px}
+  .card{border:1px solid var(--line);border-left-width:3px;border-radius:11px;background:var(--panel);
+        padding:14px 16px;margin-bottom:10px;animation:rise .18s ease}
+  @keyframes rise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .card.t1{border-left-color:var(--red)} .card.t2{border-left-color:var(--amber)} .card.t3{border-left-color:var(--green)}
+  .row1{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .nm{font-size:16px;font-weight:500}
+  .badge{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .badge.t1{color:var(--red);background:var(--red-bg)}
+  .badge.t2{color:var(--amber);background:var(--amber-bg)}
+  .badge.t3{color:var(--green);background:var(--green-bg)}
+  .prec{font-size:9.5px;font-weight:700;letter-spacing:.5px;color:var(--faint);border:1px solid var(--line);
+        padding:2px 7px;border-radius:999px;margin-left:6px;text-transform:uppercase}
+  .cat{color:var(--accent);font-size:11.5px;margin-top:5px;letter-spacing:.2px}
+  .note{color:var(--dim);font-size:12.5px;line-height:1.55;margin-top:8px;font-family:var(--mono)}
+  .alias{margin-top:9px;font-size:11px;color:var(--faint)}
+  .alias b{color:var(--dim);font-weight:500}
+  mark{background:rgba(138,180,255,.22);color:#cfe0ff;border-radius:3px;padding:0 1px}
+  .empty{text-align:center;color:var(--faint);font-size:13px;padding:40px 10px;line-height:1.6}
+  .empty .big{font-size:15px;color:var(--dim)}
+  footer{color:var(--faint);font-size:10.5px;text-align:center;margin-top:26px;line-height:1.7}
+  footer .pol{color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ingredient check<span class="dot">.</span></h1>
+    <div class="sub">Search a skincare or self-care ingredient (or one of its label aliases) to see how concerned to actually be. Uncertain entries are sorted into the more severe tier.</div>
+  </header>
+
+  <div class="searchbox">
+    <span class="mag">⌕</span>
+    <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. cloprostenate, fragrance, niacinamide, calomel…" autofocus>
+  </div>
+  <div class="hint">Tip: try a sketchy-looking word from a label — aliases are matched too.</div>
+
+  <div class="legend" id="legend"></div>
+
+  <div class="count" id="count"></div>
+  <div id="results"></div>
+
+  <footer>
+    <span class="pol">Uncertain → sorted more severe.</span> Reference tool for triage, not medical advice. Tier 2 risks are cumulative & reversible; Tier 1 is the one that warrants real caution.<br>
+    Data v1.0 · 72 ingredients · last updated 2026-06-27
+  </footer>
+</div>
+
+<script>
+let DATA=null, activeTiers=new Set([1,2,3]);
+const $=s=>document.querySelector(s);
+
+const TIERMETA={
+  1:{label:'Stop / Check'},2:{label:'Worth Reducing'},3:{label:'All Clear'}
+};
+
+function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function norm(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()}
+
+function hl(text,q){
+  if(!q) return esc(text);
+  const nq=norm(q); if(!nq) return esc(text);
+  const terms=nq.split(' ').filter(Boolean);
+  let out=esc(text);
+  for(const t of terms){
+    if(t.length<2) continue;
+    const re=new RegExp('('+t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig');
+    out=out.replace(re,'<mark>$1</mark>');
+  }
+  return out;
+}
+
+function matchScore(ing,q){
+  const nq=norm(q);
+  if(!nq) return 0;
+  const name=norm(ing.name);
+  const aliases=ing.aliases.map(norm);
+  const cat=norm(ing.category);
+  // exact name
+  if(name===nq) return 100;
+  if(aliases.includes(nq)) return 95;
+  // startswith
+  if(name.startsWith(nq)) return 80;
+  if(aliases.some(a=>a.startsWith(nq))) return 75;
+  // contains
+  if(name.includes(nq)) return 60;
+  if(aliases.some(a=>a.includes(nq))) return 55;
+  if(cat.includes(nq)) return 30;
+  if(norm(ing.note).includes(nq)) return 15;
+  return 0;
+}
+
+function buildLegend(){
+  const L=$('#legend'); L.innerHTML='';
+  [1,2,3].forEach(t=>{
+    const m=DATA.meta.tiers[t];
+    const div=document.createElement('div');
+    div.className='chip t'+t+(activeTiers.has(t)?'':' off');
+    div.innerHTML=`<span class="t">${m.label}</span><span class="c">${m.meaning.split('.')[0]}.</span>`;
+    div.onclick=()=>{ activeTiers.has(t)?activeTiers.delete(t):activeTiers.add(t); if(activeTiers.size===0)activeTiers.add(t); buildLegend(); render(); };
+    L.appendChild(div);
+  });
+}
+
+function card(ing,q){
+  const t=ing.tier;
+  const prec=ing.precautionary?`<span class="prec">precautionary</span>`:'';
+  const aliasLine=ing.aliases.length?`<div class="alias"><b>also labeled:</b> ${hl(ing.aliases.join(', '),q)}</div>`:'';
+  return `<div class="card t${t}">
+    <div class="row1">
+      <div class="nm">${hl(ing.name,q)}${prec}</div>
+      <span class="badge t${t}">${TIERMETA[t].label}</span>
+    </div>
+    <div class="cat">${hl(ing.category,q)}</div>
+    <div class="note">${hl(ing.note,q)}</div>
+    ${aliasLine}
+  </div>`;
+}
+
+function render(){
+  const q=$('#q').value.trim();
+  let list=DATA.ingredients.filter(i=>activeTiers.has(i.tier));
+  if(q){
+    list=list.map(i=>({i,s:matchScore(i,q)})).filter(x=>x.s>0)
+             .sort((a,b)=>b.s-a.s || a.i.name.localeCompare(b.i.name)).map(x=>x.i);
+  }else{
+    list=list.sort((a,b)=>a.tier-b.tier || a.name.localeCompare(b.name));
+  }
+  const C=$('#count'), R=$('#results');
+  if(list.length===0){
+    C.textContent='';
+    R.innerHTML=`<div class="empty"><span class="big">No match in the database.</span><br>
+      That doesn't mean it's unsafe — it means it isn't one of the flagged or known-benign entries yet.<br>
+      If it's on a product and looks drug-like or it's a "brightening/whitening" claim, treat with caution and add it to the list.</div>`;
+    return;
+  }
+  C.textContent=q?`${list.length} match${list.length>1?'es':''}`:`Showing all ${list.length} — search to narrow, or toggle tiers above`;
+  R.innerHTML=list.map(i=>card(i,q)).join('');
+}
+
+$('#q').addEventListener('input',render);
+
+fetch('ingredients.json')
+  .then(r=>r.json())
+  .then(d=>{ DATA=d; buildLegend(); render(); })
+  .catch(()=>{
+    $('#results').innerHTML=`<div class="empty"><span class="big">Couldn't load ingredients.json</span><br>
+    Make sure index.html and ingredients.json are in the same folder and you're serving over http (GitHub Pages or a local server), not opening the file directly.</div>`;
+  });
+</script>
+</body>
+</html>
