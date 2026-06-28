@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>safe to put on?</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎀%3C/text%3E%3C/svg%3E">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="assets/manifest.json">
 <meta name="theme-color" content="#f6f1e8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -273,17 +273,17 @@ $('#title').addEventListener('click',()=>{
   switchTo('ing'); buildLegend(); render(); $('#q').focus();
 });
 
-fetch('ingredients.json')
+fetch('database/ingredients.json')
   .then(r=>r.json())
   .then(d=>{ DATA=d; buildLegend(); render(); })
   .catch(()=>{
     $('#results').innerHTML=`<div class="empty"><span class="big">Couldn't load ingredients.json</span><br>
-    Make sure index.html and ingredients.json are in the same folder and you're serving over http (GitHub Pages or a local server), not opening the file directly.</div>`;
+    Make sure database/ingredients.json is present and you're serving over http (GitHub Pages or a local server), not opening the file directly.</div>`;
   });
 
 /* ---------- Product mode (local curated database) ---------- */
 let PRODUCTS=[];
-fetch('products.json').then(r=>r.json()).then(d=>{ PRODUCTS=d.products||[]; }).catch(()=>{});
+fetch('database/products.json').then(r=>r.json()).then(d=>{ PRODUCTS=d.products||[]; }).catch(()=>{});
 
 function switchTo(mode){
   const ing=mode==='ing';
