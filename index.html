@@ -210,7 +210,7 @@ function buildLegend(){
     div.innerHTML=`<span class="t">${m.label}</span><span class="c">${m.meaning.split('.')[0]}.</span>`;
     div.onclick=()=>{
       if(!started){ started=true; activeTiers=new Set([t]); }
-      else { activeTiers.has(t)?activeTiers.delete(t):activeTiers.add(t); if(activeTiers.size===0)activeTiers=new Set([1,2,3]); }
+      else { activeTiers.has(t)?activeTiers.delete(t):activeTiers.add(t); }  // may become empty -> "none"
       buildLegend(); render();
     };
     L.appendChild(div);
@@ -238,8 +238,8 @@ function render(){
   const q=$('#q').value.trim();
   const C=$('#count'), R=$('#results');
 
-  // Calm landing screen — nothing shown until she searches or taps a tier.
-  if(!started && !q){
+  // Calm landing screen — nothing shown on fresh load, or once all tiers are deselected.
+  if(!q && (!started || activeTiers.size===0)){
     C.textContent='';
     R.innerHTML=`<div class="empty"><span class="big">What's on the label?</span><br>
       Search one ingredient, paste a whole list, or tap a tier above to browse.</div>`;
@@ -247,7 +247,8 @@ function render(){
   }
 
   const terms=q.split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean);
-  let list=DATA.ingredients.filter(i=>activeTiers.has(i.tier));
+  // No tier selected but a query is typed -> search across all tiers.
+  let list=activeTiers.size?DATA.ingredients.filter(i=>activeTiers.has(i.tier)):DATA.ingredients.slice();
   if(terms.length){
     list=list.map(i=>({i,s:Math.max(...terms.map(t=>matchScore(i,t)))}))
              .filter(x=>x.s>0)
