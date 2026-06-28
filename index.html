@@ -131,6 +131,33 @@ const TIERMETA={
   1:{label:'Stop / Check'},2:{label:'Worth Reducing'},3:{label:'All Clear'}
 };
 
+// Emoji for an ingredient, from its (one of 15) category.
+const ING_EMOJI={
+  'Drug / hormone':'💊','Toxic metal / contaminant':'☠️','Preservative':'🛡️',
+  'UV filter':'☀️','Colorant / pigment':'🎨','Fragrance / allergen':'🌸',
+  'Botanical / essential oil':'🌿','Antioxidant / vitamin':'🍊','Humectant':'💧',
+  'Surfactant / cleanser':'🫧','Active / treatment':'✨','Emollient / oil':'🧴',
+  'Emulsifier / texture':'🧪','Solvent / propellant':'💨','Hair / nail agent':'💅'
+};
+function ingredientEmoji(cat){ return ING_EMOJI[cat]||'🧴'; }
+
+// Emoji for a product, by type keyword (first match wins), default 🧴.
+const PROD_RULES=[
+  ['sunscreen','☀️'],['spf','☀️'],['lip','💋'],['blush','🌷'],['bronzer','🤎'],['contour','🤎'],
+  ['highlight','✨'],['luminiz','✨'],['mascara','👁️'],['brow','👁️'],['eyeliner','👁️'],
+  ['eyeshadow','👁️'],['eye','👁️'],['foundation','💄'],['concealer','💄'],['cushion','💄'],
+  ['tint','💄'],['powder','🪞'],['primer','🪄'],['mist','🌫️'],['setting spray','🌫️'],
+  ['mask','🧖'],['cleans','🧼'],['wash','🧼'],['micellar','🧼'],['toner','💦'],['pad','💦'],
+  ['essence','💦'],['serum','💧'],['ampoule','💧'],['exfoli','🧽'],['peeling','🧽'],
+  ['hair','💇'],['conditioner','💇'],['oil','💧'],['cream','🧴'],['moisturizer','🧴'],
+  ['lotion','🧴'],['emulsion','🧴'],['butter','🧴'],['balm','🧴']
+];
+function productEmoji(p){
+  const hay=((p.category||'')+' '+(p.name||'')).toLowerCase();
+  for(const [kw,em] of PROD_RULES){ if(hay.includes(kw)) return em; }
+  return '🧴';
+}
+
 function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function norm(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()}
 
@@ -190,7 +217,7 @@ function card(ing,q){
   const srcLine=(ing.sources&&ing.sources.length)?`<div class="src"><b>sources:</b> ${ing.sources.map(s=>`<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.label)}</a>`).join('')}</div>`:'';
   return `<div class="card t${t}">
     <div class="row1">
-      <div class="nm">${hl(ing.name,q)}${prec}</div>
+      <div class="nm">${ingredientEmoji(ing.category)} ${hl(ing.name,q)}${prec}</div>
       <span class="badge t${t}">${TIERMETA[t].label}</span>
     </div>
     <div class="cat">${hl(ing.category,q)}</div>
@@ -300,7 +327,7 @@ function searchProducts(qv){
     .sort((a,b)=>((a.brand||'')+a.name).localeCompare((b.brand||'')+b.name)).slice(0,40);
   if(!matches.length){ R.innerHTML=`<div class="empty"><span class="big">Not in our database yet.</span><br>You can paste its label in Ingredient mode — or ask us to add it.</div>`; return; }
   R.innerHTML=matches.map(p=>{ const i=PRODUCTS.indexOf(p);
-    return `<div class="pcard" data-i="${i}"><div class="pi"><div class="pn">${esc(p.name)}</div><div class="pb">${esc(p.brand||'')}${p.category?' · '+esc(p.category):''}</div></div></div>`;
+    return `<div class="pcard" data-i="${i}"><div class="pi"><div class="pn">${productEmoji(p)} ${esc(p.name)}</div><div class="pb">${esc(p.brand||'')}${p.category?' · '+esc(p.category):''}</div></div></div>`;
   }).join('');
   [...R.querySelectorAll('.pcard')].forEach(el=>el.onclick=()=>renderProductResult(PRODUCTS[+el.dataset.i]));
 }
@@ -308,7 +335,7 @@ function searchProducts(qv){
 function renderProductResult(p){
   const R=$('#productResults');
   const head=`<div class="back" id="pback">← back</div>
-    <div class="pcard" style="cursor:default"><div class="pi"><div class="pn">${esc(p.name||'Unnamed product')}</div><div class="pb">${esc(p.brand||'')}${p.category?' · '+esc(p.category):''}</div></div></div>`;
+    <div class="pcard" style="cursor:default"><div class="pi"><div class="pn">${productEmoji(p)} ${esc(p.name||'Unnamed product')}</div><div class="pb">${esc(p.brand||'')}${p.category?' · '+esc(p.category):''}</div></div></div>`;
   const ings=p.ingredients||[];
   if(!ings.length){ R.innerHTML=head+`<div class="empty">No ingredient list stored for this product yet.</div>`; bindBack(); return; }
   const {tiers,unknown}=scoreProduct(ings);
@@ -322,7 +349,7 @@ function renderProductResult(p){
     <div class="vs">${vs}<br>${recog} recognized · ${unknown.length} not in our database</div></div>`;
   if(tiers[1].length){ html+=`<div class="section-h">Stop / check</div>`+tiers[1].map(i=>card(i,'')).join(''); }
   if(tiers[2].length){ html+=`<div class="section-h">Worth reducing</div>`+tiers[2].map(i=>card(i,'')).join(''); }
-  if(tiers[3].length){ html+=`<div class="section-h">All clear (${tiers[3].length})</div><div class="listline">${tiers[3].map(i=>esc(i.name)).join(' · ')}</div>`; }
+  if(tiers[3].length){ html+=`<div class="section-h">All clear (${tiers[3].length})</div><div class="listline">${tiers[3].map(i=>ingredientEmoji(i.category)+' '+esc(i.name)).join(' · ')}</div>`; }
   if(unknown.length){ html+=`<div class="section-h">Not in our database (${unknown.length})</div><div class="listline">${unknown.map(esc).join(' · ')}</div>`; }
   html+=`<div class="src" style="margin-top:16px"><b>full label:</b> <span class="listline">${ings.map(esc).join(', ')}</span></div>`;
   R.innerHTML=html; bindBack();
