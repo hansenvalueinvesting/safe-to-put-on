@@ -123,7 +123,7 @@
     <button class="scanbtn" id="scanBtn">📷 Scan barcode</button>
     <div id="scanner" hidden></div>
     <div id="scanMsg" class="hint"></div>
-    <div id="productResults"><div class="empty"><span class="big">Find a product</span><br>Type a product or brand above, or scan its barcode — we'll pull the ingredients from Open Beauty Facts and check each one.</div></div>
+    <div id="productResults"><div class="empty"><span class="big">Find a product</span><br>Type a product or brand above, or scan its barcode — we'll check every ingredient against our database.</div></div>
   </div>
 
 </div>
@@ -254,9 +254,9 @@ fetch('ingredients.json')
     Make sure index.html and ingredients.json are in the same folder and you're serving over http (GitHub Pages or a local server), not opening the file directly.</div>`;
   });
 
-/* ---------- Product mode (Open Beauty Facts) ---------- */
-const OBF='https://world.openbeautyfacts.org';
-const PFIELDS='code,product_name,brands,image_small_url,image_front_small_url,ingredients_text';
+/* ---------- Product mode (local curated database) ---------- */
+let PRODUCTS=[];
+fetch('products.json').then(r=>r.json()).then(d=>{ PRODUCTS=d.products||[]; }).catch(()=>{});
 
 function switchTo(mode){
   const ing=mode==='ing';
@@ -270,23 +270,22 @@ function switchTo(mode){
 $('#modeIng').onclick=()=>switchTo('ing');
 $('#modeProd').onclick=()=>{ switchTo('prod'); $('#pq').focus(); };
 
-// Turn a product's INCI text into recognized tiers + unknowns, scored against our DB.
-function parseIngredients(text){
-  if(!text) return [];
-  let t=text.replace(/^\s*ingredients?\s*:?/i,' ');
-  t=t.replace(/\[[^\]]*\]/g,' ').replace(/\(\s*\+\/-[^)]*\)/g,' ');
-  return t.split(/[,;\n\/]+/).map(s=>s.replace(/[()*.]/g,' ').replace(/\s+/g,' ').trim())
-          .filter(s=>s.length>1 && !/^may contain$/i.test(s));
-}
+// Match a single ingredient token against the ingredient DB.
 function bestMatch(token){
   if(!DATA) return null;
   let best=null,bs=0;
   for(const ing of DATA.ingredients){ const s=matchScore(ing,token); if(s>bs){bs=s;best=ing;} }
   return bs>=75?best:null;   // exact / alias / startswith only — avoid loose false positives
 }
-function scoreProduct(text){
-  const toks=parseIngredients(text), seen=new Set(), tiers={1:[],2:[],3:[]}, unknown=[];
-  for(const tk of toks){
+// Score a product's ingredient list (array of INCI strings) into tiers + unknowns.
+function scoreProduct(ingredients){
+  const clean=(ingredients||[]).map(t=>String(t)
+      .replace(/^\s*active\s*:?/i,'')          // drop "Active:" prefix on sunscreen filters
+      .replace(/\b\d+(\.\d+)?\s*%/g,' ')        // drop percentages
+      .replace(/[()*\[\].]/g,' ').replace(/\s+/g,' ').trim())
+    .filter(t=>t.length>1);
+  const seen=new Set(), tiers={1:[],2:[],3:[]}, unknown=[];
+  for(const tk of clean){
     const m=bestMatch(tk);
     if(m){ if(!seen.has(m.name)){ seen.add(m.name); tiers[m.tier].push(m); } }
     else unknown.push(tk);
@@ -294,60 +293,42 @@ function scoreProduct(text){
   return {tiers,unknown};
 }
 
-let pdebounce, pcache=[];
+let pdebounce;
 $('#pq').addEventListener('input',()=>{
   clearTimeout(pdebounce);
   const v=$('#pq').value.trim();
-  if(v.length<3){ $('#productResults').innerHTML=''; return; }
-  pdebounce=setTimeout(()=>searchProducts(v),350);
+  if(v.length<2){ $('#productResults').innerHTML=''; return; }
+  pdebounce=setTimeout(()=>searchProducts(v),120);
 });
 
 function searchProducts(qv){
   const R=$('#productResults');
-  R.innerHTML='<div class="spin">Searching Open Beauty Facts…</div>';
-  const url=`${OBF}/cgi/search.pl?search_terms=${encodeURIComponent(qv)}&search_simple=1&action=process&json=1&page_size=20&fields=${PFIELDS}`;
-  fetch(url).then(r=>r.json()).then(d=>{
-    const prods=(d.products||[]).filter(p=>p.product_name);
-    if(!prods.length){ R.innerHTML=`<div class="empty"><span class="big">No products found.</span><br>Try a shorter name, a different spelling, or scan the barcode.</div>`; return; }
-    pcache=prods;
-    R.innerHTML=prods.map((p,i)=>{
-      const img=(p.image_small_url||p.image_front_small_url)?`<img src="${esc(p.image_small_url||p.image_front_small_url)}" alt="">`:'<div style="width:46px;height:46px;flex:none"></div>';
-      return `<div class="pcard" data-i="${i}">${img}<div class="pi"><div class="pn">${esc(p.product_name)}</div>${p.brands?`<div class="pb">${esc(p.brands)}</div>`:''}</div></div>`;
-    }).join('');
-    [...R.querySelectorAll('.pcard')].forEach(el=>el.onclick=()=>showProduct(pcache[+el.dataset.i]));
-  }).catch(()=>{ R.innerHTML=`<div class="empty"><span class="big">Couldn't reach Open Beauty Facts.</span><br>Check the connection and try again, or scan the barcode.</div>`; });
-}
-
-function showProduct(p){
-  if(p.ingredients_text && p.ingredients_text.trim()){ renderProductResult(p); return; }
-  $('#productResults').innerHTML='<div class="spin">Loading ingredients…</div>';
-  fetch(`${OBF}/api/v2/product/${encodeURIComponent(p.code)}.json?fields=${PFIELDS}`)
-    .then(r=>r.json()).then(d=>renderProductResult((d.status===1&&d.product)?Object.assign({},p,d.product):p))
-    .catch(()=>renderProductResult(p));
+  if(!PRODUCTS.length){ R.innerHTML='<div class="spin">Loading product database…</div>'; setTimeout(()=>searchProducts(qv),300); return; }
+  const words=norm(qv).split(' ').filter(Boolean);
+  const matches=PRODUCTS.filter(p=>{ const hay=norm((p.brand||'')+' '+(p.name||'')); return words.every(w=>hay.includes(w)); })
+    .sort((a,b)=>((a.brand||'')+a.name).localeCompare((b.brand||'')+b.name)).slice(0,40);
+  if(!matches.length){ R.innerHTML=`<div class="empty"><span class="big">Not in our database yet.</span><br>You can paste its label in Ingredient mode — or ask us to add it.</div>`; return; }
+  R.innerHTML=matches.map(p=>{ const i=PRODUCTS.indexOf(p);
+    return `<div class="pcard" data-i="${i}"><div class="pi"><div class="pn">${esc(p.name)}</div><div class="pb">${esc(p.brand||'')}${p.category?' · '+esc(p.category):''}</div></div></div>`;
+  }).join('');
+  [...R.querySelectorAll('.pcard')].forEach(el=>el.onclick=()=>renderProductResult(PRODUCTS[+el.dataset.i]));
 }
 
 function lookupBarcode(code){
   switchTo('prod');
   const R=$('#productResults');
-  R.innerHTML=`<div class="spin">Looking up ${esc(code)}…</div>`;
-  fetch(`${OBF}/api/v2/product/${encodeURIComponent(code)}.json?fields=${PFIELDS}`)
-    .then(r=>r.json()).then(d=>{
-      if(d.status===1&&d.product&&(d.product.product_name||d.product.ingredients_text)) renderProductResult(d.product);
-      else R.innerHTML=`<div class="empty"><span class="big">Barcode ${esc(code)} not found.</span><br>Open Beauty Facts may not have this product yet — try searching by name.</div>`;
-    }).catch(()=>{ R.innerHTML=`<div class="empty"><span class="big">Couldn't reach Open Beauty Facts.</span></div>`; });
+  const p=PRODUCTS.find(x=>String(x.barcode||'')===String(code).trim());
+  if(p) renderProductResult(p);
+  else R.innerHTML=`<div class="empty"><span class="big">Barcode ${esc(code)} not in our database.</span><br>We only have barcodes for some products so far — try searching by name, or paste the label in Ingredient mode.</div>`;
 }
 
 function renderProductResult(p){
   const R=$('#productResults');
-  const img=(p.image_small_url||p.image_front_small_url)?`<img src="${esc(p.image_small_url||p.image_front_small_url)}" alt="">`:'';
   const head=`<div class="back" id="pback">← back</div>
-    <div class="pcard" style="cursor:default">${img}<div class="pi"><div class="pn">${esc(p.product_name||'Unnamed product')}</div>${p.brands?`<div class="pb">${esc(p.brands)}</div>`:''}</div></div>`;
-  const text=p.ingredients_text||'';
-  if(!text.trim()){
-    R.innerHTML=head+`<div class="empty">Open Beauty Facts has no ingredient list for this product yet.<br>You can still paste the label in Ingredient mode.</div>`;
-    bindBack(); return;
-  }
-  const {tiers,unknown}=scoreProduct(text);
+    <div class="pcard" style="cursor:default"><div class="pi"><div class="pn">${esc(p.name||'Unnamed product')}</div><div class="pb">${esc(p.brand||'')}${p.category?' · '+esc(p.category):''}</div></div></div>`;
+  const ings=p.ingredients||[];
+  if(!ings.length){ R.innerHTML=head+`<div class="empty">No ingredient list stored for this product yet.</div>`; bindBack(); return; }
+  const {tiers,unknown}=scoreProduct(ings);
   const worst=tiers[1].length?1:tiers[2].length?2:3;
   const vh=worst===1?'Stop / check':worst===2?'Worth a look':'Looks all clear';
   const vs=worst===1?'Contains one or more ingredients worth stopping to check.'
@@ -360,10 +341,10 @@ function renderProductResult(p){
   if(tiers[2].length){ html+=`<div class="section-h">Worth reducing</div>`+tiers[2].map(i=>card(i,'')).join(''); }
   if(tiers[3].length){ html+=`<div class="section-h">All clear (${tiers[3].length})</div><div class="listline">${tiers[3].map(i=>esc(i.name)).join(' · ')}</div>`; }
   if(unknown.length){ html+=`<div class="section-h">Not in our database (${unknown.length})</div><div class="listline">${unknown.map(esc).join(' · ')}</div>`; }
-  html+=`<div class="src" style="margin-top:16px"><b>data:</b> <a href="${OBF}/product/${esc(p.code||'')}" target="_blank" rel="noopener noreferrer">Open Beauty Facts</a></div>`;
+  html+=`<div class="src" style="margin-top:16px"><b>full label:</b> <span class="listline">${ings.map(esc).join(', ')}</span></div>`;
   R.innerHTML=html; bindBack();
 }
-function bindBack(){ const b=$('#pback'); if(b) b.onclick=()=>{ const v=$('#pq').value.trim(); if(v.length>=3) searchProducts(v); else $('#productResults').innerHTML=''; }; }
+function bindBack(){ const b=$('#pback'); if(b) b.onclick=()=>{ const v=$('#pq').value.trim(); if(v.length>=2) searchProducts(v); else $('#productResults').innerHTML=''; }; }
 
 /* ---------- Barcode scanner ---------- */
 let scanner=null;
