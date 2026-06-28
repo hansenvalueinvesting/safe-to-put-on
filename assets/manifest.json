@@ -2,6 +2,8 @@
   "name": "safe to put on?",
   "short_name": "safe to put on?",
   "display": "standalone",
+  "start_url": "../",
+  "scope": "../",
   "background_color": "#f6f1e8",
   "theme_color": "#f6f1e8",
   "icons": [
