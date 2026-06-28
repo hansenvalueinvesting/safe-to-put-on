@@ -138,7 +138,7 @@ function buildLegend(){
     div.innerHTML=`<span class="t">${m.label}</span><span class="c">${m.meaning.split('.')[0]}.</span>`;
     div.onclick=()=>{
       if(!started){ started=true; activeTiers=new Set([t]); }
-      else { activeTiers.has(t)?activeTiers.delete(t):activeTiers.add(t); if(activeTiers.size===0)activeTiers.add(t); }
+      else { activeTiers.has(t)?activeTiers.delete(t):activeTiers.add(t); if(activeTiers.size===0)activeTiers=new Set([1,2,3]); }
       buildLegend(); render();
     };
     L.appendChild(div);
