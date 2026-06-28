@@ -24,10 +24,10 @@
   h1 .dot{color:var(--green)}
   .sub{color:var(--dim);font-size:12.5px;margin-top:6px;line-height:1.5}
   .searchbox{position:relative;margin:20px 0 8px}
-  #q{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  #q,#pq{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:12px;
      color:var(--txt);font-family:var(--mono);font-size:15px;padding:15px 16px 15px 44px;outline:none;transition:border-color .15s}
-  #q:focus{border-color:var(--accent)}
-  #q::placeholder{color:var(--faint)}
+  #q:focus,#pq:focus{border-color:var(--accent)}
+  #q::placeholder,#pq::placeholder{color:var(--faint)}
   .mag{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--faint);font-size:15px}
   .hint{color:var(--faint);font-size:11.5px;text-align:center;margin-top:4px}
   .legend{display:flex;gap:6px;margin:16px 0 4px;flex-wrap:nowrap}
@@ -62,6 +62,33 @@
   .empty{text-align:center;color:var(--faint);font-size:13px;padding:40px 10px;line-height:1.6}
   .empty .big{font-size:15px;color:var(--dim)}
   footer{color:var(--faint);font-size:11px;text-align:center;margin-top:auto;padding-top:26px;line-height:1.7}
+  .modes{display:flex;gap:6px;margin-bottom:2px}
+  .mode-btn{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--dim);
+            font-family:var(--mono);font-size:12.5px;font-weight:500;padding:10px;cursor:pointer;transition:.15s}
+  .mode-btn:hover{border-color:var(--faint)}
+  .mode-btn.active{color:var(--txt);border-color:var(--accent);background:var(--panel-2)}
+  .scanbtn{width:100%;margin:8px 0 4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+           color:var(--accent);font-family:var(--mono);font-size:14px;padding:13px;cursor:pointer;transition:.15s}
+  .scanbtn:hover{border-color:var(--accent)}
+  #scanner{width:100%;max-width:420px;margin:10px auto;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+  .pcard{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:11px;background:var(--panel);
+         padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:.15s;animation:rise .18s ease}
+  .pcard:hover{border-color:var(--faint)}
+  .pcard img{width:46px;height:46px;object-fit:contain;background:#fff;border-radius:8px;flex:none}
+  .pcard .pi{min-width:0}
+  .pcard .pn{font-size:14px;font-weight:500;line-height:1.3}
+  .pcard .pb{font-size:11px;color:var(--dim);margin-top:2px}
+  .verdict{border:1px solid var(--line);border-left-width:4px;border-radius:12px;padding:15px 16px;margin-bottom:14px}
+  .verdict.t1{border-left-color:var(--red);background:var(--red-bg)}
+  .verdict.t2{border-left-color:var(--amber);background:var(--amber-bg)}
+  .verdict.t3{border-left-color:var(--green);background:var(--green-bg)}
+  .verdict .vh{font-family:var(--serif);font-size:21px;font-weight:600;letter-spacing:-.3px}
+  .verdict.t1 .vh{color:var(--red)} .verdict.t2 .vh{color:var(--amber)} .verdict.t3 .vh{color:var(--green)}
+  .verdict .vs{font-size:12px;color:var(--dim);margin-top:6px;line-height:1.55}
+  .section-h{color:var(--faint);font-size:11px;text-transform:uppercase;letter-spacing:.4px;margin:16px 2px 8px}
+  .listline{font-size:11.5px;color:var(--faint);line-height:1.8;word-break:break-word}
+  .back{color:var(--accent);font-size:12px;cursor:pointer;display:inline-block;margin-bottom:10px}
+  .spin{text-align:center;color:var(--dim);font-size:13px;padding:34px 10px}
 </style>
 </head>
 <body>
@@ -71,20 +98,39 @@
     <div class="sub">See how worried to be about a skincare ingredient.</div>
   </header>
 
-  <div class="searchbox">
-    <span class="mag">⌕</span>
-    <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="search one — or paste a whole label, e.g. fragrance, niacinamide, calomel…" autofocus>
+  <div class="modes">
+    <button class="mode-btn active" id="modeIng">Ingredient</button>
+    <button class="mode-btn" id="modeProd">Product</button>
   </div>
 
-  <div class="legend" id="legend"></div>
+  <div id="ingredientMode">
+    <div class="searchbox">
+      <span class="mag">⌕</span>
+      <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="search one — or paste a whole label, e.g. fragrance, niacinamide, calomel…" autofocus>
+    </div>
 
-  <div class="count" id="count"></div>
-  <div id="results"></div>
+    <div class="legend" id="legend"></div>
+
+    <div class="count" id="count"></div>
+    <div id="results"></div>
+  </div>
+
+  <div id="productMode" hidden>
+    <div class="searchbox">
+      <span class="mag">⌕</span>
+      <input id="pq" type="text" autocomplete="off" spellcheck="false" placeholder="search a product or brand, e.g. CeraVe moisturizing cream…">
+    </div>
+    <button class="scanbtn" id="scanBtn">📷 Scan barcode</button>
+    <div id="scanner" hidden></div>
+    <div id="scanMsg" class="hint"></div>
+    <div id="productResults"><div class="empty"><span class="big">Find a product</span><br>Type a product or brand above, or scan its barcode — we'll pull the ingredients from Open Beauty Facts and check each one.</div></div>
+  </div>
 
 </div>
 
 <footer>have fun stay safe i love ya snugs ❤️</footer>
 
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
 let DATA=null, activeTiers=new Set([1,2,3]), started=false;
 const $=s=>document.querySelector(s);
@@ -197,7 +243,7 @@ $('#q').addEventListener('input',()=>{ started=true; render(); });
 
 $('#title').addEventListener('click',()=>{
   $('#q').value=''; activeTiers=new Set([1,2,3]); started=false;
-  buildLegend(); render(); $('#q').focus();
+  switchTo('ing'); buildLegend(); render(); $('#q').focus();
 });
 
 fetch('ingredients.json')
@@ -207,6 +253,139 @@ fetch('ingredients.json')
     $('#results').innerHTML=`<div class="empty"><span class="big">Couldn't load ingredients.json</span><br>
     Make sure index.html and ingredients.json are in the same folder and you're serving over http (GitHub Pages or a local server), not opening the file directly.</div>`;
   });
+
+/* ---------- Product mode (Open Beauty Facts) ---------- */
+const OBF='https://world.openbeautyfacts.org';
+const PFIELDS='code,product_name,brands,image_small_url,image_front_small_url,ingredients_text';
+
+function switchTo(mode){
+  const ing=mode==='ing';
+  $('#ingredientMode').hidden=!ing;
+  $('#productMode').hidden=ing;
+  $('#modeIng').classList.toggle('active',ing);
+  $('#modeProd').classList.toggle('active',!ing);
+  $('.sub').textContent=ing?'See how worried to be about a skincare ingredient.':'Search a product or scan its barcode to check it.';
+  if(ing) stopScan();
+}
+$('#modeIng').onclick=()=>switchTo('ing');
+$('#modeProd').onclick=()=>{ switchTo('prod'); $('#pq').focus(); };
+
+// Turn a product's INCI text into recognized tiers + unknowns, scored against our DB.
+function parseIngredients(text){
+  if(!text) return [];
+  let t=text.replace(/^\s*ingredients?\s*:?/i,' ');
+  t=t.replace(/\[[^\]]*\]/g,' ').replace(/\(\s*\+\/-[^)]*\)/g,' ');
+  return t.split(/[,;\n\/]+/).map(s=>s.replace(/[()*.]/g,' ').replace(/\s+/g,' ').trim())
+          .filter(s=>s.length>1 && !/^may contain$/i.test(s));
+}
+function bestMatch(token){
+  if(!DATA) return null;
+  let best=null,bs=0;
+  for(const ing of DATA.ingredients){ const s=matchScore(ing,token); if(s>bs){bs=s;best=ing;} }
+  return bs>=75?best:null;   // exact / alias / startswith only — avoid loose false positives
+}
+function scoreProduct(text){
+  const toks=parseIngredients(text), seen=new Set(), tiers={1:[],2:[],3:[]}, unknown=[];
+  for(const tk of toks){
+    const m=bestMatch(tk);
+    if(m){ if(!seen.has(m.name)){ seen.add(m.name); tiers[m.tier].push(m); } }
+    else unknown.push(tk);
+  }
+  return {tiers,unknown};
+}
+
+let pdebounce, pcache=[];
+$('#pq').addEventListener('input',()=>{
+  clearTimeout(pdebounce);
+  const v=$('#pq').value.trim();
+  if(v.length<3){ $('#productResults').innerHTML=''; return; }
+  pdebounce=setTimeout(()=>searchProducts(v),350);
+});
+
+function searchProducts(qv){
+  const R=$('#productResults');
+  R.innerHTML='<div class="spin">Searching Open Beauty Facts…</div>';
+  const url=`${OBF}/cgi/search.pl?search_terms=${encodeURIComponent(qv)}&search_simple=1&action=process&json=1&page_size=20&fields=${PFIELDS}`;
+  fetch(url).then(r=>r.json()).then(d=>{
+    const prods=(d.products||[]).filter(p=>p.product_name);
+    if(!prods.length){ R.innerHTML=`<div class="empty"><span class="big">No products found.</span><br>Try a shorter name, a different spelling, or scan the barcode.</div>`; return; }
+    pcache=prods;
+    R.innerHTML=prods.map((p,i)=>{
+      const img=(p.image_small_url||p.image_front_small_url)?`<img src="${esc(p.image_small_url||p.image_front_small_url)}" alt="">`:'<div style="width:46px;height:46px;flex:none"></div>';
+      return `<div class="pcard" data-i="${i}">${img}<div class="pi"><div class="pn">${esc(p.product_name)}</div>${p.brands?`<div class="pb">${esc(p.brands)}</div>`:''}</div></div>`;
+    }).join('');
+    [...R.querySelectorAll('.pcard')].forEach(el=>el.onclick=()=>showProduct(pcache[+el.dataset.i]));
+  }).catch(()=>{ R.innerHTML=`<div class="empty"><span class="big">Couldn't reach Open Beauty Facts.</span><br>Check the connection and try again, or scan the barcode.</div>`; });
+}
+
+function showProduct(p){
+  if(p.ingredients_text && p.ingredients_text.trim()){ renderProductResult(p); return; }
+  $('#productResults').innerHTML='<div class="spin">Loading ingredients…</div>';
+  fetch(`${OBF}/api/v2/product/${encodeURIComponent(p.code)}.json?fields=${PFIELDS}`)
+    .then(r=>r.json()).then(d=>renderProductResult((d.status===1&&d.product)?Object.assign({},p,d.product):p))
+    .catch(()=>renderProductResult(p));
+}
+
+function lookupBarcode(code){
+  switchTo('prod');
+  const R=$('#productResults');
+  R.innerHTML=`<div class="spin">Looking up ${esc(code)}…</div>`;
+  fetch(`${OBF}/api/v2/product/${encodeURIComponent(code)}.json?fields=${PFIELDS}`)
+    .then(r=>r.json()).then(d=>{
+      if(d.status===1&&d.product&&(d.product.product_name||d.product.ingredients_text)) renderProductResult(d.product);
+      else R.innerHTML=`<div class="empty"><span class="big">Barcode ${esc(code)} not found.</span><br>Open Beauty Facts may not have this product yet — try searching by name.</div>`;
+    }).catch(()=>{ R.innerHTML=`<div class="empty"><span class="big">Couldn't reach Open Beauty Facts.</span></div>`; });
+}
+
+function renderProductResult(p){
+  const R=$('#productResults');
+  const img=(p.image_small_url||p.image_front_small_url)?`<img src="${esc(p.image_small_url||p.image_front_small_url)}" alt="">`:'';
+  const head=`<div class="back" id="pback">← back</div>
+    <div class="pcard" style="cursor:default">${img}<div class="pi"><div class="pn">${esc(p.product_name||'Unnamed product')}</div>${p.brands?`<div class="pb">${esc(p.brands)}</div>`:''}</div></div>`;
+  const text=p.ingredients_text||'';
+  if(!text.trim()){
+    R.innerHTML=head+`<div class="empty">Open Beauty Facts has no ingredient list for this product yet.<br>You can still paste the label in Ingredient mode.</div>`;
+    bindBack(); return;
+  }
+  const {tiers,unknown}=scoreProduct(text);
+  const worst=tiers[1].length?1:tiers[2].length?2:3;
+  const vh=worst===1?'Stop / check':worst===2?'Worth a look':'Looks all clear';
+  const vs=worst===1?'Contains one or more ingredients worth stopping to check.'
+        :worst===2?'A few ingredients worth reducing — nothing acutely alarming.'
+        :'Nothing flagged among the ingredients we recognized.';
+  const recog=tiers[1].length+tiers[2].length+tiers[3].length;
+  let html=head+`<div class="verdict t${worst}"><div class="vh">${vh}</div>
+    <div class="vs">${vs}<br>${recog} recognized · ${unknown.length} not in our database</div></div>`;
+  if(tiers[1].length){ html+=`<div class="section-h">Stop / check</div>`+tiers[1].map(i=>card(i,'')).join(''); }
+  if(tiers[2].length){ html+=`<div class="section-h">Worth reducing</div>`+tiers[2].map(i=>card(i,'')).join(''); }
+  if(tiers[3].length){ html+=`<div class="section-h">All clear (${tiers[3].length})</div><div class="listline">${tiers[3].map(i=>esc(i.name)).join(' · ')}</div>`; }
+  if(unknown.length){ html+=`<div class="section-h">Not in our database (${unknown.length})</div><div class="listline">${unknown.map(esc).join(' · ')}</div>`; }
+  html+=`<div class="src" style="margin-top:16px"><b>data:</b> <a href="${OBF}/product/${esc(p.code||'')}" target="_blank" rel="noopener noreferrer">Open Beauty Facts</a></div>`;
+  R.innerHTML=html; bindBack();
+}
+function bindBack(){ const b=$('#pback'); if(b) b.onclick=()=>{ const v=$('#pq').value.trim(); if(v.length>=3) searchProducts(v); else $('#productResults').innerHTML=''; }; }
+
+/* ---------- Barcode scanner ---------- */
+let scanner=null;
+$('#scanBtn').onclick=()=>{
+  if(scanner){ stopScan(); return; }
+  const div=$('#scanner'), msg=$('#scanMsg');
+  if(!window.Html5Qrcode){ msg.textContent='Scanner failed to load — check the connection and reload.'; return; }
+  div.hidden=false; $('#scanBtn').textContent='✕ Stop scanning'; msg.textContent='Point the camera at the barcode.';
+  scanner=new Html5Qrcode('scanner');
+  let fmts;
+  if(window.Html5QrcodeSupportedFormats){ const F=Html5QrcodeSupportedFormats; fmts=[F.EAN_13,F.EAN_8,F.UPC_A,F.UPC_E,F.CODE_128]; }
+  scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:260,height:150},formatsToSupport:fmts},
+    txt=>{ stopScan(); lookupBarcode(txt); }, ()=>{})
+   .catch(e=>{ msg.textContent='Camera unavailable: '+e; div.hidden=true; $('#scanBtn').textContent='📷 Scan barcode'; scanner=null; });
+};
+function stopScan(){
+  const div=$('#scanner'), msg=$('#scanMsg');
+  $('#scanBtn').textContent='📷 Scan barcode';
+  if(scanner){ const s=scanner; scanner=null; s.stop().then(()=>s.clear()).catch(()=>{}); }
+  if(div){ div.hidden=true; div.innerHTML=''; }
+  if(msg) msg.textContent='';
+}
 </script>
 </body>
 </html>
