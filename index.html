@@ -67,10 +67,6 @@
             font-family:var(--mono);font-size:12.5px;font-weight:500;padding:10px;cursor:pointer;transition:.15s}
   .mode-btn:hover{border-color:var(--faint)}
   .mode-btn.active{color:var(--txt);border-color:var(--accent);background:var(--panel-2)}
-  .scanbtn{width:100%;margin:8px 0 4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;
-           color:var(--accent);font-family:var(--mono);font-size:14px;padding:13px;cursor:pointer;transition:.15s}
-  .scanbtn:hover{border-color:var(--accent)}
-  #scanner{width:100%;max-width:420px;margin:10px auto;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
   .pcard{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:11px;background:var(--panel);
          padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:.15s;animation:rise .18s ease}
   .pcard:hover{border-color:var(--faint)}
@@ -120,17 +116,13 @@
       <span class="mag">⌕</span>
       <input id="pq" type="text" autocomplete="off" spellcheck="false" placeholder="search a product or brand, e.g. CeraVe moisturizing cream…">
     </div>
-    <button class="scanbtn" id="scanBtn">📷 Scan barcode</button>
-    <div id="scanner" hidden></div>
-    <div id="scanMsg" class="hint"></div>
-    <div id="productResults"><div class="empty"><span class="big">Find a product</span><br>Type a product or brand above, or scan its barcode — we'll check every ingredient against our database.</div></div>
+    <div id="productResults"><div class="empty"><span class="big">Find a product</span><br>Type a product or brand above — we'll check every ingredient against our database.</div></div>
   </div>
 
 </div>
 
 <footer>have fun stay safe i love ya snugs ❤️</footer>
 
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
 let DATA=null, activeTiers=new Set([1,2,3]), started=false;
 const $=s=>document.querySelector(s);
@@ -264,8 +256,7 @@ function switchTo(mode){
   $('#productMode').hidden=ing;
   $('#modeIng').classList.toggle('active',ing);
   $('#modeProd').classList.toggle('active',!ing);
-  $('.sub').textContent=ing?'See how worried to be about a skincare ingredient.':'Search a product or scan its barcode to check it.';
-  if(ing) stopScan();
+  $('.sub').textContent=ing?'See how worried to be about a skincare ingredient.':'Search a product to check it.';
 }
 $('#modeIng').onclick=()=>switchTo('ing');
 $('#modeProd').onclick=()=>{ switchTo('prod'); $('#pq').focus(); };
@@ -314,14 +305,6 @@ function searchProducts(qv){
   [...R.querySelectorAll('.pcard')].forEach(el=>el.onclick=()=>renderProductResult(PRODUCTS[+el.dataset.i]));
 }
 
-function lookupBarcode(code){
-  switchTo('prod');
-  const R=$('#productResults');
-  const p=PRODUCTS.find(x=>String(x.barcode||'')===String(code).trim());
-  if(p) renderProductResult(p);
-  else R.innerHTML=`<div class="empty"><span class="big">Barcode ${esc(code)} not in our database.</span><br>We only have barcodes for some products so far — try searching by name, or paste the label in Ingredient mode.</div>`;
-}
-
 function renderProductResult(p){
   const R=$('#productResults');
   const head=`<div class="back" id="pback">← back</div>
@@ -345,28 +328,6 @@ function renderProductResult(p){
   R.innerHTML=html; bindBack();
 }
 function bindBack(){ const b=$('#pback'); if(b) b.onclick=()=>{ const v=$('#pq').value.trim(); if(v.length>=2) searchProducts(v); else $('#productResults').innerHTML=''; }; }
-
-/* ---------- Barcode scanner ---------- */
-let scanner=null;
-$('#scanBtn').onclick=()=>{
-  if(scanner){ stopScan(); return; }
-  const div=$('#scanner'), msg=$('#scanMsg');
-  if(!window.Html5Qrcode){ msg.textContent='Scanner failed to load — check the connection and reload.'; return; }
-  div.hidden=false; $('#scanBtn').textContent='✕ Stop scanning'; msg.textContent='Point the camera at the barcode.';
-  scanner=new Html5Qrcode('scanner');
-  let fmts;
-  if(window.Html5QrcodeSupportedFormats){ const F=Html5QrcodeSupportedFormats; fmts=[F.EAN_13,F.EAN_8,F.UPC_A,F.UPC_E,F.CODE_128]; }
-  scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:260,height:150},formatsToSupport:fmts},
-    txt=>{ stopScan(); lookupBarcode(txt); }, ()=>{})
-   .catch(e=>{ msg.textContent='Camera unavailable: '+e; div.hidden=true; $('#scanBtn').textContent='📷 Scan barcode'; scanner=null; });
-};
-function stopScan(){
-  const div=$('#scanner'), msg=$('#scanMsg');
-  $('#scanBtn').textContent='📷 Scan barcode';
-  if(scanner){ const s=scanner; scanner=null; s.stop().then(()=>s.clear()).catch(()=>{}); }
-  if(div){ div.hidden=true; div.innerHTML=''; }
-  if(msg) msg.textContent='';
-}
 </script>
 </body>
 </html>
