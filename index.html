@@ -92,6 +92,16 @@
   .listline{font-size:11.5px;color:var(--faint);line-height:1.8;word-break:break-word}
   .back{color:var(--accent);font-size:12px;cursor:pointer;display:inline-block;margin-bottom:10px}
   .spin{text-align:center;color:var(--dim);font-size:13px;padding:34px 10px}
+  /* Product catalogue (landing): A–Z jump bar + brands grouped alphabetically */
+  .azbar{display:flex;flex-wrap:wrap;gap:3px 7px;justify-content:center;margin:10px 0 14px}
+  .azbar a{color:var(--accent);font-size:12px;cursor:pointer;padding:1px 3px;user-select:none}
+  .azbar a:hover{text-decoration:underline}
+  .azbar a.off{color:var(--faint);opacity:.4;pointer-events:none}
+  .lettergroup{color:var(--dim);font-family:var(--serif);font-size:15px;font-weight:600;border-bottom:1px solid var(--line);padding:0 2px 5px;margin:18px 2px 9px}
+  .brandrow{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);border-radius:11px;background:var(--panel);padding:12px 14px;margin-bottom:7px;cursor:pointer;transition:.15s}
+  .brandrow:hover{border-color:var(--faint)}
+  .brandrow .bn{font-size:14px;font-weight:500}
+  .brandrow .bc{font-size:11px;color:var(--faint);white-space:nowrap}
   /* Embedded "suggest a product" Google Form — responsive on phone & desktop */
   .gform{display:block;width:100%;border:0;border-radius:12px;background:var(--panel);
          margin-top:8px;height:clamp(460px,72vh,700px)}
@@ -121,18 +131,18 @@
 <div class="wrap">
   <header>
     <h1 id="title" title="Reset">🎀 safe to put on<span class="dot">?</span></h1>
-    <div class="sub">See how worried to be about a skincare ingredient.</div>
+    <div class="sub">Browse the catalogue or search a product to check it.</div>
   </header>
 
   <div class="modes">
-    <button class="mode-btn active" id="modeIng">Ingredient</button>
-    <button class="mode-btn" id="modeProd">Product</button>
+    <button class="mode-btn" id="modeIng">Ingredient</button>
+    <button class="mode-btn active" id="modeProd">Product</button>
   </div>
 
-  <div id="ingredientMode">
+  <div id="ingredientMode" hidden>
     <div class="searchbox">
       <span class="mag">⌕</span>
-      <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="search for ingredients or paste ingredient list..." autofocus>
+      <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="search for ingredients or paste ingredient list...">
     </div>
 
     <div class="legend" id="legend"></div>
@@ -141,12 +151,12 @@
     <div id="results"></div>
   </div>
 
-  <div id="productMode" hidden>
+  <div id="productMode">
     <div class="searchbox">
       <span class="mag">⌕</span>
       <input id="pq" type="text" autocomplete="off" spellcheck="false" placeholder="search for a product or brand...">
     </div>
-    <div id="productResults"><div class="empty"><span class="big">Find a product</span><br>Type a product or brand above — we'll check every ingredient against our database.</div></div>
+    <div id="productResults"><div class="spin">Loading catalogue…</div></div>
   </div>
 
 </div>
@@ -292,8 +302,8 @@ function render(){
 $('#q').addEventListener('input',()=>{ started=true; render(); });
 
 $('#title').addEventListener('click',()=>{
-  $('#q').value=''; activeTiers=new Set([1,2,3]); started=false;
-  switchTo('ing'); buildLegend(); render(); $('#q').focus();
+  $('#q').value=''; $('#pq').value=''; activeTiers=new Set([1,2,3]); started=false;
+  buildLegend(); render(); switchTo('prod');   // reset to the product catalogue (default)
 });
 
 fetch('database/ingredients.json')
@@ -306,7 +316,12 @@ fetch('database/ingredients.json')
 
 /* ---------- Product mode (local curated database) ---------- */
 let PRODUCTS=[];
-fetch('database/products.json').then(r=>r.json()).then(d=>{ PRODUCTS=d.products||[]; }).catch(()=>{});
+fetch('database/products.json').then(r=>r.json()).then(d=>{
+  PRODUCTS=d.products||[];
+  if(!$('#productMode').hidden && !$('#pq').value.trim()) renderCatalogue();
+}).catch(()=>{
+  if(!$('#productMode').hidden) $('#productResults').innerHTML=`<div class="empty"><span class="big">Couldn't load products.json</span><br>Serve over http (GitHub Pages or a local server), not the file directly.</div>`;
+});
 
 function switchTo(mode){
   const ing=mode==='ing';
@@ -314,7 +329,9 @@ function switchTo(mode){
   $('#productMode').hidden=ing;
   $('#modeIng').classList.toggle('active',ing);
   $('#modeProd').classList.toggle('active',!ing);
-  $('.sub').textContent=ing?'See how worried to be about a skincare ingredient.':'Search a product to check it.';
+  $('.sub').textContent=ing?'See how worried to be about a skincare ingredient.'
+                           :'Browse the catalogue or search a product to check it.';
+  if(!ing && !$('#pq').value.trim()) renderCatalogue();
 }
 $('#modeIng').onclick=()=>switchTo('ing');
 $('#modeProd').onclick=()=>{ switchTo('prod'); $('#pq').focus(); };
@@ -346,9 +363,45 @@ let pdebounce;
 $('#pq').addEventListener('input',()=>{
   clearTimeout(pdebounce);
   const v=$('#pq').value.trim();
-  if(v.length<2){ $('#productResults').innerHTML=''; return; }
+  if(v.length<2){ renderCatalogue(); return; }
   pdebounce=setTimeout(()=>searchProducts(v),120);
 });
+
+// Landing catalogue: A–Z jump bar + brands grouped alphabetically.
+function renderCatalogue(){
+  const R=$('#productResults');
+  if(!PRODUCTS.length){ R.innerHTML='<div class="spin">Loading catalogue…</div>'; setTimeout(renderCatalogue,300); return; }
+  const counts={}; PRODUCTS.forEach(p=>{ counts[p.brand]=(counts[p.brand]||0)+1; });
+  const brands=Object.keys(counts).sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
+  const byLetter={};
+  brands.forEach(b=>{ const c=(b[0]||'#').toUpperCase(); const L=/[A-Z]/.test(c)?c:'#'; (byLetter[L]=byLetter[L]||[]).push(b); });
+  const az='ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
+    .map(L=>byLetter[L]?`<a data-l="${L}">${L}</a>`:`<a class="off">${L}</a>`).join('');
+  let html=`<div class="azbar">${az}</div>
+    <div class="count">${PRODUCTS.length} products · ${brands.length} brands — tap a brand to browse, or search above</div>`;
+  Object.keys(byLetter).sort().forEach(L=>{
+    html+=`<div class="lettergroup" id="L_${L}">${L}</div>`;
+    byLetter[L].forEach(b=>{
+      html+=`<div class="brandrow" data-brand="${esc(b)}"><span class="bn">${esc(b)}</span><span class="bc">${counts[b]} ›</span></div>`;
+    });
+  });
+  R.innerHTML=html;
+  R.querySelectorAll('.azbar a[data-l]').forEach(a=>a.onclick=()=>{ const el=$('#L_'+a.dataset.l); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); });
+  R.querySelectorAll('.brandrow').forEach(el=>el.onclick=()=>renderBrand(el.dataset.brand));
+}
+
+// One brand's products (reached from the catalogue).
+function renderBrand(brand){
+  const R=$('#productResults');
+  const items=PRODUCTS.map((p,i)=>({p,i})).filter(x=>x.p.brand===brand)
+    .sort((a,b)=>a.p.name.localeCompare(b.p.name));
+  let html=`<div class="back" id="pback">← all brands</div>
+    <div class="section-h">${esc(brand)} · ${items.length} product${items.length>1?'s':''}</div>`;
+  html+=items.map(({p,i})=>`<div class="pcard" data-i="${i}"><div class="pi"><div class="pn">${productEmoji(p)} ${esc(p.name)}</div><div class="pb">${esc(p.category||'')}</div></div></div>`).join('');
+  R.innerHTML=html;
+  $('#pback').onclick=renderCatalogue;
+  R.querySelectorAll('.pcard').forEach(el=>el.onclick=()=>renderProductResult(PRODUCTS[+el.dataset.i],()=>renderBrand(brand)));
+}
 
 function searchProducts(qv){
   const R=$('#productResults');
@@ -375,15 +428,16 @@ function searchProducts(qv){
   R.innerHTML=matches.map(p=>{ const i=PRODUCTS.indexOf(p);
     return `<div class="pcard" data-i="${i}"><div class="pi"><div class="pn">${productEmoji(p)} ${esc(p.name)}</div><div class="pb">${esc(p.brand||'')}${p.category?' · '+esc(p.category):''}</div></div></div>`;
   }).join('');
-  [...R.querySelectorAll('.pcard')].forEach(el=>el.onclick=()=>renderProductResult(PRODUCTS[+el.dataset.i]));
+  [...R.querySelectorAll('.pcard')].forEach(el=>el.onclick=()=>renderProductResult(PRODUCTS[+el.dataset.i],()=>searchProducts(qv)));
 }
 
-function renderProductResult(p){
+function renderProductResult(p, back){
   const R=$('#productResults');
+  const goBack=back||renderCatalogue;
   const head=`<div class="back" id="pback">← back</div>
     <div class="pcard" style="cursor:default"><div class="pi"><div class="pn">${productEmoji(p)} ${esc(p.name||'Unnamed product')}</div><div class="pb">${esc(p.brand||'')}${p.category?' · '+esc(p.category):''}</div></div></div>`;
   const ings=p.ingredients||[];
-  if(!ings.length){ R.innerHTML=head+`<div class="empty">No ingredient list stored for this product yet.</div>`; bindBack(); return; }
+  if(!ings.length){ R.innerHTML=head+`<div class="empty">No ingredient list stored for this product yet.</div>`; $('#pback').onclick=goBack; return; }
   const {tiers,unknown}=scoreProduct(ings);
   const worst=tiers[1].length?1:tiers[2].length?2:3;
   const vh=worst===1?'Stop / check':worst===2?'Worth a look':'Looks all clear';
@@ -398,9 +452,8 @@ function renderProductResult(p){
   if(tiers[3].length){ html+=`<div class="section-h">All clear (${tiers[3].length})</div><div class="listline">${tiers[3].map(i=>ingredientEmoji(i.category)+' '+esc(i.name)).join(' · ')}</div>`; }
   if(unknown.length){ html+=`<div class="section-h">Not in our database (${unknown.length})</div><div class="listline">${unknown.map(esc).join(' · ')}</div>`; }
   html+=`<div class="src" style="margin-top:16px"><b>full label:</b> <span class="listline">${ings.map(esc).join(', ')}</span></div>`;
-  R.innerHTML=html; bindBack();
+  R.innerHTML=html; $('#pback').onclick=goBack;
 }
-function bindBack(){ const b=$('#pback'); if(b) b.onclick=()=>{ const v=$('#pq').value.trim(); if(v.length>=2) searchProducts(v); else $('#productResults').innerHTML=''; }; }
 </script>
 </body>
 </html>
