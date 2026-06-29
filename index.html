@@ -38,6 +38,7 @@
   .mag{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--faint);font-size:15px}
   .hint{color:var(--faint);font-size:11.5px;text-align:center;margin-top:4px}
   .legend{display:flex;gap:6px;margin:16px 0 4px;flex-wrap:nowrap}
+  .legend[hidden],.count[hidden]{display:none}   /* let the hidden attribute win over display rules */
   .chip{flex:1 1 0;min-width:0;border:1px solid var(--line);border-radius:10px;padding:9px 8px;background:var(--panel);cursor:pointer;transition:.15s;user-select:none}
   .chip:hover{border-color:var(--faint)}
   .chip.off{opacity:.4}
@@ -69,11 +70,17 @@
   .empty{text-align:center;color:var(--faint);font-size:13px;padding:40px 10px;line-height:1.6}
   .empty .big{font-size:17px;color:var(--dim);font-family:var(--serif)}
   footer{color:var(--dim);font-family:var(--serif);font-style:italic;font-size:13px;text-align:center;margin-top:auto;padding-top:26px;line-height:1.7}
-  .modes{display:flex;gap:6px;margin-bottom:2px}
-  .mode-btn{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--dim);
-            font-family:var(--mono);font-size:12.5px;font-weight:500;padding:10px;cursor:pointer;transition:.15s}
-  .mode-btn:hover{border-color:var(--faint)}
-  .mode-btn.active{color:var(--txt);border-color:var(--accent);background:var(--panel-2)}
+  /* Segmented mode switch, sitting flush above the shared search bar */
+  .seg{display:flex;background:var(--panel-2);border:1px solid var(--line);
+       border-radius:13px 13px 4px 4px;padding:3px;gap:2px;margin-bottom:6px}
+  .seg-btn{flex:1;border:0;background:transparent;border-radius:10px;color:var(--dim);
+           font-family:var(--mono);font-size:13px;font-weight:500;letter-spacing:.2px;
+           padding:10px;cursor:pointer;transition:.18s}
+  .seg-btn:hover{color:var(--txt)}
+  .seg-btn.active{background:var(--panel);color:var(--txt);box-shadow:0 1px 3px rgba(76,70,61,.10)}
+  /* the search bar reads as one unit with the switch above it */
+  .seg + .searchbox{margin-top:0}
+  .seg + .searchbox #q{border-top-left-radius:4px;border-top-right-radius:4px}
   .pcard{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:11px;background:var(--panel);
          padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:.15s;animation:rise .18s ease}
   .pcard:hover{border-color:var(--faint)}
@@ -111,15 +118,15 @@
     .sub{font-size:15px}
     .chip .t{font-size:11px} .chip .c{font-size:10.5px}
     .nm{font-size:17px} .note{font-size:13px}
-    .mode-btn{font-size:13px}
+    .seg-btn{font-size:13.5px}
   }
   /* Keep the three tier chips tidy on small phones */
   @media (max-width:400px){
     .legend{gap:5px}
     .chip{padding:8px 6px}
     .chip .t{font-size:9px} .chip .c{font-size:8.5px}
-    .mode-btn{font-size:12px;padding:9px}
-    #q,#pq{font-size:14px;padding:14px 14px 14px 40px}
+    .seg-btn{font-size:12.5px;padding:9px}
+    #q{font-size:14px;padding:14px 14px 14px 40px}
   }
   /* Honour users who prefer reduced motion */
   @media (prefers-reduced-motion:reduce){
@@ -134,37 +141,26 @@
     <div class="sub">Browse the catalogue or search a product to check it.</div>
   </header>
 
-  <div class="modes">
-    <button class="mode-btn" id="modeIng">Ingredient</button>
-    <button class="mode-btn active" id="modeProd">Product</button>
+  <div class="seg" id="seg">
+    <button class="seg-btn active" data-mode="prod">Products</button>
+    <button class="seg-btn" data-mode="ing">Ingredients</button>
   </div>
 
-  <div id="ingredientMode" hidden>
-    <div class="searchbox">
-      <span class="mag">⌕</span>
-      <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="search for ingredients or paste ingredient list...">
-    </div>
-
-    <div class="legend" id="legend"></div>
-
-    <div class="count" id="count"></div>
-    <div id="results"></div>
+  <div class="searchbox">
+    <span class="mag">⌕</span>
+    <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="search for a product or brand...">
   </div>
 
-  <div id="productMode">
-    <div class="searchbox">
-      <span class="mag">⌕</span>
-      <input id="pq" type="text" autocomplete="off" spellcheck="false" placeholder="search for a product or brand...">
-    </div>
-    <div id="productResults"><div class="spin">Loading catalogue…</div></div>
-  </div>
+  <div class="legend" id="legend" hidden></div>
+  <div class="count" id="count" hidden></div>
+  <div id="results"><div class="spin">Loading catalogue…</div></div>
 
 </div>
 
 <footer>have fun stay safe i love ya snugs ❤️</footer>
 
 <script>
-let DATA=null, activeTiers=new Set([1,2,3]), started=false;
+let DATA=null, activeTiers=new Set([1,2,3]), started=false, mode='prod', pdebounce;
 const $=s=>document.querySelector(s);
 
 const TIERMETA={
@@ -268,6 +264,7 @@ function card(ing,q){
 }
 
 function render(){
+  if(!DATA) return;
   const q=$('#q').value.trim();
   const C=$('#count'), R=$('#results');
 
@@ -299,16 +296,21 @@ function render(){
   R.innerHTML=list.map(i=>card(i,q)).join('');
 }
 
-$('#q').addEventListener('input',()=>{ started=true; render(); });
-
-$('#title').addEventListener('click',()=>{
-  $('#q').value=''; $('#pq').value=''; activeTiers=new Set([1,2,3]); started=false;
-  buildLegend(); render(); switchTo('prod');   // reset to the product catalogue (default)
+// One search bar, routed by the active mode.
+$('#q').addEventListener('input',()=>{
+  if(mode==='prod'){
+    clearTimeout(pdebounce);
+    const v=$('#q').value.trim();
+    if(v.length<2){ renderCatalogue(); return; }
+    pdebounce=setTimeout(()=>searchProducts(v),120);
+  } else { started=true; render(); }
 });
+
+$('#title').addEventListener('click',()=>setMode('prod'));   // reset to the default product catalogue
 
 fetch('database/ingredients.json')
   .then(r=>r.json())
-  .then(d=>{ DATA=d; buildLegend(); render(); })
+  .then(d=>{ DATA=d; buildLegend(); if(mode==='ing') render(); })
   .catch(()=>{
     $('#results').innerHTML=`<div class="empty"><span class="big">Couldn't load ingredients.json</span><br>
     Make sure database/ingredients.json is present and you're serving over http (GitHub Pages or a local server), not opening the file directly.</div>`;
@@ -318,23 +320,25 @@ fetch('database/ingredients.json')
 let PRODUCTS=[];
 fetch('database/products.json').then(r=>r.json()).then(d=>{
   PRODUCTS=d.products||[];
-  if(!$('#productMode').hidden && !$('#pq').value.trim()) renderCatalogue();
+  if(mode==='prod' && !$('#q').value.trim()) renderCatalogue();
 }).catch(()=>{
-  if(!$('#productMode').hidden) $('#productResults').innerHTML=`<div class="empty"><span class="big">Couldn't load products.json</span><br>Serve over http (GitHub Pages or a local server), not the file directly.</div>`;
+  if(mode==='prod') $('#results').innerHTML=`<div class="empty"><span class="big">Couldn't load products.json</span><br>Serve over http (GitHub Pages or a local server), not the file directly.</div>`;
 });
 
-function switchTo(mode){
-  const ing=mode==='ing';
-  $('#ingredientMode').hidden=!ing;
-  $('#productMode').hidden=ing;
-  $('#modeIng').classList.toggle('active',ing);
-  $('#modeProd').classList.toggle('active',!ing);
-  $('.sub').textContent=ing?'See how worried to be about a skincare ingredient.'
-                           :'Browse the catalogue or search a product to check it.';
-  if(!ing && !$('#pq').value.trim()) renderCatalogue();
+// Switch what the single search bar searches (Products vs Ingredients).
+function setMode(m){
+  mode=m;
+  $('#q').value=''; started=false; activeTiers=new Set([1,2,3]);
+  document.querySelectorAll('.seg-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===m));
+  const prod=m==='prod';
+  $('#q').placeholder=prod?'search for a product or brand...':'search for ingredients or paste ingredient list...';
+  $('.sub').textContent=prod?'Browse the catalogue or search a product to check it.'
+                            :'See how worried to be about a skincare ingredient.';
+  $('#legend').hidden=prod;
+  $('#count').hidden=prod;
+  if(prod){ renderCatalogue(); } else { buildLegend(); render(); }
 }
-$('#modeIng').onclick=()=>switchTo('ing');
-$('#modeProd').onclick=()=>{ switchTo('prod'); $('#pq').focus(); };
+document.querySelectorAll('.seg-btn').forEach(b=>b.onclick=()=>{ setMode(b.dataset.mode); $('#q').focus(); });
 
 // Match a single ingredient token against the ingredient DB.
 function bestMatch(token){
@@ -359,17 +363,9 @@ function scoreProduct(ingredients){
   return {tiers,unknown};
 }
 
-let pdebounce;
-$('#pq').addEventListener('input',()=>{
-  clearTimeout(pdebounce);
-  const v=$('#pq').value.trim();
-  if(v.length<2){ renderCatalogue(); return; }
-  pdebounce=setTimeout(()=>searchProducts(v),120);
-});
-
 // Landing catalogue: A–Z jump bar + brands grouped alphabetically.
 function renderCatalogue(){
-  const R=$('#productResults');
+  const R=$('#results');
   if(!PRODUCTS.length){ R.innerHTML='<div class="spin">Loading catalogue…</div>'; setTimeout(renderCatalogue,300); return; }
   const counts={}; PRODUCTS.forEach(p=>{ counts[p.brand]=(counts[p.brand]||0)+1; });
   const brands=Object.keys(counts).sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
@@ -392,7 +388,7 @@ function renderCatalogue(){
 
 // One brand's products (reached from the catalogue).
 function renderBrand(brand){
-  const R=$('#productResults');
+  const R=$('#results');
   const items=PRODUCTS.map((p,i)=>({p,i})).filter(x=>x.p.brand===brand)
     .sort((a,b)=>a.p.name.localeCompare(b.p.name));
   let html=`<div class="back" id="pback">← all brands</div>
@@ -404,7 +400,7 @@ function renderBrand(brand){
 }
 
 function searchProducts(qv){
-  const R=$('#productResults');
+  const R=$('#results');
   if(!PRODUCTS.length){ R.innerHTML='<div class="spin">Loading product database…</div>'; setTimeout(()=>searchProducts(qv),300); return; }
   const words=norm(qv).split(' ').filter(Boolean);
   const matches=PRODUCTS.filter(p=>{ const hay=norm((p.brand||'')+' '+(p.name||'')); return words.every(w=>hay.includes(w)); })
@@ -432,7 +428,7 @@ function searchProducts(qv){
 }
 
 function renderProductResult(p, back){
-  const R=$('#productResults');
+  const R=$('#results');
   const goBack=back||renderCatalogue;
   const head=`<div class="back" id="pback">← back</div>
     <div class="pcard" style="cursor:default"><div class="pi"><div class="pn">${productEmoji(p)} ${esc(p.name||'Unnamed product')}</div><div class="pb">${esc(p.brand||'')}${p.category?' · '+esc(p.category):''}</div></div></div>`;
