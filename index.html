@@ -333,7 +333,7 @@ function searchProducts(qv){
   const words=norm(qv).split(' ').filter(Boolean);
   const matches=PRODUCTS.filter(p=>{ const hay=norm((p.brand||'')+' '+(p.name||'')); return words.every(w=>hay.includes(w)); })
     .sort((a,b)=>((a.brand||'')+a.name).localeCompare((b.brand||'')+b.name)).slice(0,40);
-  if(!matches.length){ R.innerHTML=`<div class="empty"><span class="big">Not in our database yet.</span><br>You can paste its label in Ingredient mode — or ask us to add it.</div>`; return; }
+  if(!matches.length){ R.innerHTML=`<div class="empty"><span class="big">Not in our database yet.</span><br>You can paste its label in Ingredient mode — or ask us to add it <a href="https://forms.gle/inhkDwjYAMjRUE97A" target="_blank" rel="noopener noreferrer">here</a>..</div>`; return; }
   R.innerHTML=matches.map(p=>{ const i=PRODUCTS.indexOf(p);
     return `<div class="pcard" data-i="${i}"><div class="pi"><div class="pn">${productEmoji(p)} ${esc(p.name)}</div><div class="pb">${esc(p.brand||'')}${p.category?' · '+esc(p.category):''}</div></div></div>`;
   }).join('');
