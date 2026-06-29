@@ -109,6 +109,9 @@
   .brandrow:hover{border-color:var(--faint)}
   .brandrow .bn{font-size:14px;font-weight:500}
   .brandrow .bc{font-size:11px;color:var(--faint);white-space:nowrap}
+  /* tier counts in the ingredient summary line */
+  .tc{font-weight:600;white-space:nowrap}
+  .tc.t1{color:var(--red)} .tc.t2{color:var(--amber)} .tc.t3{color:var(--green)}
   /* Embedded "suggest a product" Google Form — responsive on phone & desktop */
   .gform{display:block;width:100%;border:0;border-radius:12px;background:var(--panel);
          margin-top:8px;height:clamp(460px,72vh,700px)}
@@ -160,7 +163,8 @@
 <footer>have fun stay safe i love ya snugs ❤️</footer>
 
 <script>
-let DATA=null, activeTiers=new Set([1,2,3]), started=false, mode='prod', pdebounce;
+let DATA=null, activeTiers=new Set([1,2,3]), started=false, mode='prod', pdebounce, TIERCOUNT=null, CATCOUNT=null;
+const ICAP=60;   // cap how many ingredient cards we render at once
 const $=s=>document.querySelector(s);
 
 const TIERMETA={
@@ -231,6 +235,7 @@ function matchScore(ing,q){
 }
 
 function buildLegend(){
+  if(!DATA) return;
   const L=$('#legend'); L.innerHTML='';
   [1,2,3].forEach(t=>{
     const m=DATA.meta.tiers[t];
@@ -267,24 +272,22 @@ function render(){
   if(!DATA) return;
   const q=$('#q').value.trim();
   const C=$('#count'), R=$('#results');
-
-  // Calm landing screen — nothing shown on fresh load, or once all tiers are deselected.
-  if(!q && (!started || activeTiers.size===0)){
-    C.textContent='';
-    R.innerHTML=`<div class="empty"><span class="big">What's on the label?</span><br>
-      Search one ingredient, paste a whole list, or tap a tier above to browse.</div>`;
-    return;
-  }
-
   const terms=q.split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean);
-  // No tier selected but a query is typed -> search across all tiers.
+
+  // Pasted a whole label (several comma/line-separated items) -> product-style verdict.
+  if(terms.length>=4){ renderIngredientVerdict(terms); return; }
+
+  // Landing: nothing typed and not browsing a specific tier.
+  if(!q && (!started || activeTiers.size===0)){ renderIngredientLanding(); return; }
+
+  // Tier browse / search across the active tiers.
   let list=activeTiers.size?DATA.ingredients.filter(i=>activeTiers.has(i.tier)):DATA.ingredients.slice();
-  if(terms.length){
+  if(q){
     list=list.map(i=>({i,s:Math.max(...terms.map(t=>matchScore(i,t)))}))
              .filter(x=>x.s>0)
              .sort((a,b)=>b.s-a.s || a.i.name.localeCompare(b.i.name)).map(x=>x.i);
   }else{
-    list=list.sort((a,b)=>a.tier-b.tier || a.name.localeCompare(b.name));
+    list=list.sort((a,b)=>a.tier-b.tier || a.name.localeCompare(b.name));   // flagged first
   }
   if(list.length===0){
     C.textContent='';
@@ -292,8 +295,64 @@ function render(){
       Not a red flag on its own — but if it looks drug-like or claims to "brighten/whiten," be cautious.</div>`;
     return;
   }
-  C.textContent=q?`${list.length} match${list.length>1?'es':''}`:`All ${list.length} — search to narrow`;
-  R.innerHTML=list.map(i=>card(i,q)).join('');
+  const shown=list.slice(0,ICAP);
+  C.textContent=list.length>ICAP
+    ? `${list.length} ${q?'matches':'ingredients'} — showing first ${ICAP}, refine to narrow`
+    : (q?`${list.length} match${list.length>1?'es':''}`:`${list.length} ingredients`);
+  R.innerHTML=shown.map(i=>card(i,q)).join('');
+}
+
+// Ingredient landing: a database-size summary + a browse-by-category catalogue.
+function renderIngredientLanding(){
+  const C=$('#count'), R=$('#results'), t=TIERCOUNT;
+  C.innerHTML=`<b>${DATA.ingredients.length.toLocaleString()}</b> ingredients · `
+    +`<span class="tc t1">${t[1].toLocaleString()} stop/check</span> · `
+    +`<span class="tc t2">${t[2].toLocaleString()} worth reducing</span> · `
+    +`<span class="tc t3">${t[3].toLocaleString()} all clear</span>`;
+  let html=`<div class="section-h">Browse by category</div>`;
+  html+=Object.keys(CATCOUNT).sort().map(c=>
+    `<div class="brandrow catrow" data-cat="${esc(c)}"><span class="bn">${ingredientEmoji(c)} ${esc(c)}</span><span class="bc">${CATCOUNT[c]} ›</span></div>`).join('');
+  R.innerHTML=html;
+  R.querySelectorAll('.catrow').forEach(el=>el.onclick=()=>renderCategory(el.dataset.cat));
+}
+
+// One ingredient category (reached from the landing), flagged tiers first.
+function renderCategory(cat){
+  const C=$('#count'), R=$('#results');
+  const list=DATA.ingredients.filter(i=>i.category===cat)
+    .sort((a,b)=>a.tier-b.tier || a.name.localeCompare(b.name));
+  const shown=list.slice(0,ICAP);
+  C.textContent=list.length>ICAP?`showing first ${ICAP} of ${list.length} — search to narrow`:`${list.length} ingredients`;
+  let html=`<div class="back" id="iback">← all categories</div>
+    <div class="section-h">${ingredientEmoji(cat)} ${esc(cat)} · ${list.length}</div>`;
+  html+=shown.map(i=>card(i,'')).join('');
+  R.innerHTML=html;
+  $('#iback').onclick=()=>{ activeTiers=new Set([1,2,3]); started=false; buildLegend(); render(); };
+}
+
+// Verdict + tiered breakdown for a list of ingredient tokens (shared by product + paste views).
+function verdictBlock(tiers,unknown){
+  const worst=tiers[1].length?1:tiers[2].length?2:3;
+  const vh=worst===1?'Stop / check':worst===2?'Worth a look':'Looks all clear';
+  const vs=worst===1?'Contains one or more ingredients worth stopping to check.'
+        :worst===2?'A few ingredients worth reducing — nothing acutely alarming.'
+        :'Nothing flagged among the ingredients we recognized.';
+  const recog=tiers[1].length+tiers[2].length+tiers[3].length;
+  let html=`<div class="verdict t${worst}"><div class="vh">${vh}</div>
+    <div class="vs">${vs}<br>${recog} recognized · ${unknown.length} not in our database</div></div>`;
+  if(tiers[1].length){ html+=`<div class="section-h">Stop / check</div>`+tiers[1].map(i=>card(i,'')).join(''); }
+  if(tiers[2].length){ html+=`<div class="section-h">Worth reducing</div>`+tiers[2].map(i=>card(i,'')).join(''); }
+  if(tiers[3].length){ html+=`<div class="section-h">All clear (${tiers[3].length})</div><div class="listline">${tiers[3].map(i=>ingredientEmoji(i.category)+' '+esc(i.name)).join(' · ')}</div>`; }
+  if(unknown.length){ html+=`<div class="section-h">Not in our database (${unknown.length})</div><div class="listline">${unknown.map(esc).join(' · ')}</div>`; }
+  return html;
+}
+
+// Paste a whole label into ingredient search -> same verdict view as a catalogued product.
+function renderIngredientVerdict(terms){
+  const C=$('#count'), R=$('#results');
+  const {tiers,unknown}=scoreProduct(terms);
+  C.textContent=`pasted label · ${terms.length} ingredients`;
+  R.innerHTML=`<div class="section-h" style="margin-top:2px">Label check</div>`+verdictBlock(tiers,unknown);
 }
 
 // One search bar, routed by the active mode.
@@ -310,7 +369,12 @@ $('#title').addEventListener('click',()=>setMode('prod'));   // reset to the def
 
 fetch('database/ingredients.json')
   .then(r=>r.json())
-  .then(d=>{ DATA=d; buildLegend(); if(mode==='ing') render(); })
+  .then(d=>{
+    DATA=d;
+    TIERCOUNT={1:0,2:0,3:0}; CATCOUNT={};
+    d.ingredients.forEach(i=>{ TIERCOUNT[i.tier]=(TIERCOUNT[i.tier]||0)+1; CATCOUNT[i.category]=(CATCOUNT[i.category]||0)+1; });
+    buildLegend(); if(mode==='ing') render();
+  })
   .catch(()=>{
     $('#results').innerHTML=`<div class="empty"><span class="big">Couldn't load ingredients.json</span><br>
     Make sure database/ingredients.json is present and you're serving over http (GitHub Pages or a local server), not opening the file directly.</div>`;
@@ -435,19 +499,8 @@ function renderProductResult(p, back){
   const ings=p.ingredients||[];
   if(!ings.length){ R.innerHTML=head+`<div class="empty">No ingredient list stored for this product yet.</div>`; $('#pback').onclick=goBack; return; }
   const {tiers,unknown}=scoreProduct(ings);
-  const worst=tiers[1].length?1:tiers[2].length?2:3;
-  const vh=worst===1?'Stop / check':worst===2?'Worth a look':'Looks all clear';
-  const vs=worst===1?'Contains one or more ingredients worth stopping to check.'
-        :worst===2?'A few ingredients worth reducing — nothing acutely alarming.'
-        :'Nothing flagged among the ingredients we recognized.';
-  const recog=tiers[1].length+tiers[2].length+tiers[3].length;
-  let html=head+`<div class="verdict t${worst}"><div class="vh">${vh}</div>
-    <div class="vs">${vs}<br>${recog} recognized · ${unknown.length} not in our database</div></div>`;
-  if(tiers[1].length){ html+=`<div class="section-h">Stop / check</div>`+tiers[1].map(i=>card(i,'')).join(''); }
-  if(tiers[2].length){ html+=`<div class="section-h">Worth reducing</div>`+tiers[2].map(i=>card(i,'')).join(''); }
-  if(tiers[3].length){ html+=`<div class="section-h">All clear (${tiers[3].length})</div><div class="listline">${tiers[3].map(i=>ingredientEmoji(i.category)+' '+esc(i.name)).join(' · ')}</div>`; }
-  if(unknown.length){ html+=`<div class="section-h">Not in our database (${unknown.length})</div><div class="listline">${unknown.map(esc).join(' · ')}</div>`; }
-  html+=`<div class="src" style="margin-top:16px"><b>full label:</b> <span class="listline">${ings.map(esc).join(', ')}</span></div>`;
+  const html=head+verdictBlock(tiers,unknown)
+    +`<div class="src" style="margin-top:16px"><b>full label:</b> <span class="listline">${ings.map(esc).join(', ')}</span></div>`;
   R.innerHTML=html; $('#pback').onclick=goBack;
 }
 </script>
