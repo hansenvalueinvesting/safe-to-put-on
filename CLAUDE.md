@@ -8,7 +8,7 @@ tier. Data lives in two JSON files under `database/`.
 ## ⛔ The one rule that controls cost
 
 **Never open `database/ingredients.json` or `database/products.json` with a
-Read tool.** They are ~350k and ~175k tokens respectively — reading either
+Read tool.** They are a couple hundred thousand tokens each — reading either
 blows the context window and burns huge usage for no reason.
 
 Everything routine is done through **`scripts/db.py`**, which streams the files
