@@ -397,7 +397,7 @@ function setMode(m){
   const prod=m==='prod';
   $('#q').placeholder=prod?'search for a product or brand...':'search for ingredients or paste ingredient list...';
   $('.sub').textContent=prod?'Browse the catalogue or search a product to check it.'
-                            :'See how worried to be about a skincare ingredient.';
+                            :'See how worried to be about an ingredient.';
   $('#legend').hidden=prod;
   $('#count').hidden=prod;
   if(prod){ renderCatalogue(); } else { buildLegend(); render(); }
