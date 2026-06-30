@@ -1,3 +1,6 @@
+Scope & focus:
+This is a database for skincare, beauty, and cosmetics products. Prioritize products in that lane — skincare (serums, treatments, moisturizers, cleansers, toners, masks, exfoliants, sun care, eye/lip care), color cosmetics/makeup (face, eye, lip, lash, brow), lash care, and lip products. Do NOT make basic bath/shower "essentials" a focus, and do not add shampoos or conditioners (rinse-out hair wash). Hair care is acceptable when it is cosmetic/treatment-oriented rather than a wash essential — e.g., hair color/dye, hair oils, hair masks, leave-in treatments, scalp care, and hair mists are fine; shampoo, conditioner, body wash, bar soap, and hand wash are not. When a brand spans both, pull its beauty/cosmetic/skincare hero products and skip the shower-aisle staples.
+
 Instructions for expanding the database (when targeting specific brands):
 
 1. Identify brand(s). 
