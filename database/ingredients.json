@@ -4,19 +4,19 @@
     "updated": "2026-06-30",
     "tiers": {
       "1": {
-        "label": "Big No",
+        "label": "Harmful",
         "color": "red",
-        "meaning": "A hard no \u2014 avoid. Drug-class actives and toxic metals or contaminants that don't belong in a cosmetic; no safe everyday use, and they often hide undeclared in lightening/brightening/whitening products."
+        "meaning": "Best avoided \u2014 no safe everyday use. Drug-class actives and toxic metals or contaminants that don't belong in a cosmetic, and that often hide undeclared in lightening/brightening/whitening products."
       },
       "2": {
-        "label": "Worth Checking",
+        "label": "Worth Reducing",
         "color": "amber",
-        "meaning": "Potentially harmful \u2014 worth checking before regular use. Endocrine-disruptor or sensitizer concerns where risk is usually cumulative, low-dose and reversible; fine occasionally, but prefer alternatives for daily leave-on products."
+        "meaning": "A slight concern worth checking out. Endocrine-disruptor or sensitizer concerns where risk is usually cumulative and low-dose; prefer alternatives for daily leave-on products."
       },
       "3": {
         "label": "All Clear",
         "color": "green",
-        "meaning": "All clear \u2014 benign or beneficial. A standard cosmetic ingredient with no notable safety concern at cosmetic levels."
+        "meaning": "Benign or beneficial. A standard cosmetic ingredient with no notable safety concern at cosmetic levels."
       }
     },
     "policy": "When a substance is uncertain or evidence is mixed, it is sorted into the MORE severe tier and marked precautionary:true."
