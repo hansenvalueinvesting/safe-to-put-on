@@ -168,7 +168,7 @@ const ICAP=60;   // cap how many ingredient cards we render at once
 const $=s=>document.querySelector(s);
 
 const TIERMETA={
-  1:{label:'Harmful'},2:{label:'Worth Reducing'},3:{label:'All Clear'}
+  1:{label:'Harmful'},2:{label:'Worth Checking'},3:{label:'All Clear'}
 };
 
 // Emoji for an ingredient, from its (one of 15) category.
@@ -307,7 +307,7 @@ function renderIngredientLanding(){
   const C=$('#count'), R=$('#results'), t=TIERCOUNT;
   C.innerHTML=`<b>${DATA.ingredients.length.toLocaleString()}</b> ingredients · `
     +`<span class="tc t1">${t[1].toLocaleString()} harmful</span> · `
-    +`<span class="tc t2">${t[2].toLocaleString()} worth reducing</span> · `
+    +`<span class="tc t2">${t[2].toLocaleString()} worth checking</span> · `
     +`<span class="tc t3">${t[3].toLocaleString()} all clear</span>`;
   let html=`<div class="section-h">Browse by category</div>`;
   html+=Object.keys(CATCOUNT).sort().map(c=>
@@ -333,15 +333,15 @@ function renderCategory(cat){
 // Verdict + tiered breakdown for a list of ingredient tokens (shared by product + paste views).
 function verdictBlock(tiers,unknown){
   const worst=tiers[1].length?1:tiers[2].length?2:3;
-  const vh=worst===1?'Harmful':worst===2?'Worth reducing':'Looks all clear';
+  const vh=worst===1?'Harmful':worst===2?'Worth checking':'Looks all clear';
   const vs=worst===1?'Contains one or more ingredients to avoid.'
-        :worst===2?'A few ingredients worth reducing — a slight concern worth checking out.'
+        :worst===2?'A few ingredients worth checking — potentially a concern, but often fine, so worth a precautionary look.'
         :'Nothing flagged among the ingredients we recognized.';
   const recog=tiers[1].length+tiers[2].length+tiers[3].length;
   let html=`<div class="verdict t${worst}"><div class="vh">${vh}</div>
     <div class="vs">${vs}<br>${recog} recognized · ${unknown.length} not in our database</div></div>`;
   if(tiers[1].length){ html+=`<div class="section-h">Harmful</div>`+tiers[1].map(i=>card(i,'')).join(''); }
-  if(tiers[2].length){ html+=`<div class="section-h">Worth reducing</div>`+tiers[2].map(i=>card(i,'')).join(''); }
+  if(tiers[2].length){ html+=`<div class="section-h">Worth checking</div>`+tiers[2].map(i=>card(i,'')).join(''); }
   if(tiers[3].length){ html+=`<div class="section-h">All clear (${tiers[3].length})</div><div class="listline">${tiers[3].map(i=>ingredientEmoji(i.category)+' '+esc(i.name)).join(' · ')}</div>`; }
   if(unknown.length){ html+=`<div class="section-h">Not in our database (${unknown.length})</div><div class="listline">${unknown.map(esc).join(' · ')}</div>`; }
   return html;
