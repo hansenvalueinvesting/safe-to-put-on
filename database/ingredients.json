@@ -11,7 +11,7 @@
       "2": {
         "label": "Worth Checking",
         "color": "amber",
-        "meaning": "Potentially a concern, but often fine — worth a precautionary check. Endocrine-disruptor or sensitizer concerns where risk is usually cumulative and low-dose; prefer alternatives for daily leave-on products."
+        "meaning": "Flagged for a precautionary check, not outright harmful. Endocrine-disruptor or sensitizer concerns where risk is usually cumulative and low-dose; prefer alternatives for daily leave-on products."
       },
       "3": {
         "label": "All Clear",

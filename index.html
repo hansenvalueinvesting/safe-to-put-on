@@ -335,7 +335,7 @@ function verdictBlock(tiers,unknown){
   const worst=tiers[1].length?1:tiers[2].length?2:3;
   const vh=worst===1?'Harmful':worst===2?'Worth checking':'Looks all clear';
   const vs=worst===1?'Contains one or more ingredients to avoid.'
-        :worst===2?'A few ingredients worth checking — potentially a concern, but often fine, so worth a precautionary look.'
+        :worst===2?'A few flagged ingredients here — nothing outright harmful, but worth a precautionary check.'
         :'Nothing flagged among the ingredients we recognized.';
   const recog=tiers[1].length+tiers[2].length+tiers[3].length;
   let html=`<div class="verdict t${worst}"><div class="vh">${vh}</div>
